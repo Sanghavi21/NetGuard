@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2 class="mb-4 text-warning">Safe Attack Simulation Mode</h2>
+<p class="text-muted mb-4">Use these controls to safely generate synthetic intrusion events within the local database for demonstration purposes. No external network traffic is generated.</p>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+            <div class="alert alert-{{ category }}">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+{% endwith %}
+
+<div class="row">
+    <!-- Single Event Simulations -->
+    <div class="col-md-4 mb-3">
+        <div class="card p-4 text-center border-warning h-100">
+            <h5>Simulate Port Scan</h5>
+            <p class="text-muted small">Generates a rapid multi-port connection attempt from a single IP.</p>
+            <form method="POST"><input type="hidden" name="attack_type" value="port_scan"><button type="submit" class="btn btn-outline-warning w-100 mt-auto">Trigger Port Scan</button></form>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="card p-4 text-center border-danger h-100">
+            <h5>Simulate Traffic Spike</h5>
+            <p class="text-muted small">Generates a volumetric anomaly (DDoS simulation).</p>
+            <form method="POST"><input type="hidden" name="attack_type" value="traffic_spike"><button type="submit" class="btn btn-outline-danger w-100 mt-auto">Trigger Traffic Anomaly</button></form>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="card p-4 text-center border-info h-100">
+            <h5>Simulate Suspicious IP</h5>
+            <p class="text-muted small">Generates traffic from an IP currently on your Blacklist.</p>
+            <form method="POST"><input type="hidden" name="attack_type" value="suspicious_ip"><button type="submit" class="btn btn-outline-info w-100 mt-auto">Trigger Blacklist Match</button></form>
+        </div>
+    </div>
+
+    <!-- Bulk Simulation -->
+    <div class="col-md-12 mt-3">
+        <div class="card p-4 text-center border-success bg-dark">
+            <h4 class="text-success">Demo Mode: Bulk Data Generator</h4>
+            <p class="text-light">Instantly injects <strong>120 randomized security events</strong> into the database. Use this to instantly populate your dashboard numbers, charts, and Security Logs page with realistic, varying IP addresses and timeframes before a presentation.</p>
+            <form method="POST">
+                <input type="hidden" name="attack_type" value="bulk">
+                <button type="submit" class="btn btn-success fw-bold p-3">⚡ Generate 120 Random Network Events</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

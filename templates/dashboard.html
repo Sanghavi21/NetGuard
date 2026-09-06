@@ -1,0 +1,114 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>SOC Dashboard</h2>
+    <div>
+        <form action="{{ url_for('clear_data') }}" method="POST" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete all security logs? This cannot be undone.');">
+            <button type="submit" class="btn btn-sm btn-outline-danger me-3">🗑️ Clear All Data</button>
+        </form>
+        <!-- The badge now has an ID so our script can change the text -->
+        <span class="badge bg-success p-2" id="live-badge">🟢 SYSTEM ACTIVE (LIVE: 10s)</span>
+    </div>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+            <div class="alert alert-{{ category }}">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+{% endwith %}
+
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card p-3 text-center border-info">
+            <h6 class="text-light">Total Events Logged</h6>
+            <h3 class="text-info">{{ total_events }}</h3>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card p-3 text-center border-warning">
+            <h6 class="text-light">High Threats</h6>
+            <h3 class="text-warning">{{ high_alerts }}</h3>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card p-3 text-center border-danger">
+            <h6 class="text-light">Critical Alerts</h6>
+            <h3 class="text-danger">{{ critical_alerts }}</h3>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card p-3 text-center border-success">
+            <h6 class="text-light">Database Status</h6>
+            <h3 class="text-success">ONLINE</h3>
+        </div>
+    </div>
+</div>
+
+<h4 class="mb-3">Recent Security Events</h4>
+<div class="card p-3">
+    <table class="table table-dark table-hover mb-0">
+        <thead>
+            <tr>
+                <th>Origin</th>
+                <th>Source IP</th>
+                <th>Event Type</th>
+                <th>Severity</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for event in recent_events %}
+            <tr>
+                <td>{{ event.location }}</td>
+                <td>{{ event.source_ip }}</td>
+                <td>{{ event.event_type }}</td>
+                <td>
+                    {% if event.severity == 'CRITICAL' %}
+                        <span class="badge bg-danger">CRITICAL</span>
+                    {% else %}
+                        <span class="badge bg-warning text-dark">{{ event.severity }}</span>
+                    {% endif %}
+                </td>
+                <td class="text-success">{{ event.status }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5" class="text-center text-muted">No recent events.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Visible Auto-Refresh Script -->
+<!-- Visible Auto-Refresh & Audio Alert Script -->
+<script>
+    // 1. Audible Alarm Logic
+    const currentThreats = {{ critical_alerts }} + {{ high_alerts }};
+    const previousThreats = localStorage.getItem('netguard_threat_count');
+    
+    if (previousThreats !== null && currentThreats > previousThreats) {
+        // Play a short beep if the threat count went up
+        const alertSound = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
+        alertSound.volume = 0.5; // Set volume to 50%
+        alertSound.play().catch(e => console.log("Click anywhere on the dashboard first to allow audio."));
+    }
+    
+    // Save current count for the next reload
+    localStorage.setItem('netguard_threat_count', currentThreats);
+
+    // 2. Live Refresh Timer Logic
+    let timeLeft = 10;
+    const badge = document.getElementById('live-badge');
+    
+    setInterval(function() {
+        timeLeft--;
+        if (timeLeft > 0) {
+            badge.innerHTML = "🟢 SYSTEM ACTIVE (LIVE: " + timeLeft + "s)";
+        } else {
+            badge.innerHTML = "🔄 FETCHING DATA...";
+            window.location.reload();
+        }
+    }, 1000);
+</script>
+{% endblock %}

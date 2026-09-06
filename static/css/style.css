@@ -1,0 +1,47 @@
+body {
+    background-color: #0f172a; /* Dark blue-grey background */
+    color: #e2e8f0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.sidebar {
+    height: 100vh;
+    background-color: #1e293b;
+    padding-top: 20px;
+    border-right: 1px solid #334155;
+}
+
+.sidebar a {
+    color: #94a3b8;
+    text-decoration: none;
+    padding: 10px 20px;
+    display: block;
+    font-weight: 500;
+}
+
+.sidebar a:hover, .sidebar a.active {
+    color: #38bdf8;
+    background-color: #0f172a;
+    border-left: 4px solid #38bdf8;
+}
+
+.card {
+    background-color: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    color: #e2e8f0;
+}
+
+.login-container {
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.brand-title {
+    color: #38bdf8;
+    font-weight: bold;
+    letter-spacing: 2px;
+}
+.text-muted { color: #cbd5e1 !important; }

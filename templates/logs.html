@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2 class="mb-4">Security Logs</h2>
+<div class="card p-3">
+    <table class="table table-dark table-hover mb-0">
+        <thead>
+            <tr>
+                <th>Timestamp</th>
+                <th>Source IP</th>
+                <th>Destination</th>
+                <th>Protocol</th>
+                <th>Event</th>
+                <th>Severity</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for log in logs %}
+            <tr>
+                <td>{{ log.timestamp }}</td>
+                <td>{{ log.source_ip }}</td>
+                <td>{{ log.destination_ip }}</td>
+                <td>{{ log.protocol }}</td>
+                <td>{{ log.event_type }}</td>
+                <td>
+                    {% if log.severity == 'HIGH' or log.severity == 'CRITICAL' %}
+                        <span class="badge bg-danger">{{ log.severity }}</span>
+                    {% elif log.severity == 'MEDIUM' %}
+                        <span class="badge bg-warning text-dark">{{ log.severity }}</span>
+                    {% else %}
+                        <span class="badge bg-info text-dark">{{ log.severity }}</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="6" class="text-center text-muted py-4">No events logged yet.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

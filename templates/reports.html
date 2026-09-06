@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2 class="mb-4">System Reports & Auditing</h2>
+
+<div class="row mb-5">
+    <div class="col-md-6">
+        <div class="card p-5 text-center border-success">
+            <h4 class="mb-3 text-success">Export Security Logs</h4>
+            <p class="text-light mb-4">Download a complete CSV report of all detected network events and intrusions for offline analysis.</p>
+            <a href="{{ url_for('export_csv') }}" class="btn btn-success w-100 fw-bold">Download CSV Report</a>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card p-5 text-center border-info">
+            <h4 class="mb-3 text-info">PDF Generation</h4>
+            <p class="text-light mb-4">Generate and download a formatted PDF security document for auditing and viva demonstrations.</p>
+            <a href="{{ url_for('pdf_report') }}" target="_blank" class="btn btn-info w-100 fw-bold text-white">Generate PDF Report</a>
+        </div>
+    </div>
+</div>
+
+<h4 class="mb-3 text-warning">Admin Access Audit Trail</h4>
+<div class="card p-3">
+    <table class="table table-dark table-hover mb-0">
+        <thead>
+            <tr>
+                <th>Timestamp</th>
+                <th>Admin Username</th>
+                <th>Action Taken</th>
+                <th>Connecting IP</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for log in access_logs %}
+            <tr>
+                <td>{{ log.timestamp }}</td>
+                <td class="text-info">{{ log.username }}</td>
+                <td>
+                    {% if log.action == 'LOGIN' %}
+                        <span class="badge bg-success">LOGIN</span>
+                    {% else %}
+                        <span class="badge bg-secondary">LOGOUT</span>
+                    {% endif %}
+                </td>
+                <td class="text-muted">{{ log.ip_address }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4" class="text-center text-muted">No access logs found yet. Log out and back in to generate data.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

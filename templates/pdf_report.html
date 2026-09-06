@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>NetGuard Security Report</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 40px; color: #000; background: #fff; }
+        .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #000; padding-bottom: 10px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; font-size: 14px; }
+        th { background-color: #f2f2f2; }
+        .critical { color: red; font-weight: bold; }
+        .high { color: orange; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>NETGUARD - Official Security Audit Report</h1>
+        <p>Generated automatically by the NetGuard Intrusion Detection Engine</p>
+    </div>
+    
+    <h3>Detected Network Security Events</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Timestamp</th>
+                <th>Source IP</th>
+                <th>Event Type</th>
+                <th>Severity</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for event in events %}
+            <tr>
+                <td>{{ event.timestamp }}</td>
+                <td>{{ event.source_ip }}</td>
+                <td>{{ event.event_type }}</td>
+                <td class="{% if event.severity == 'CRITICAL' %}critical{% elif event.severity == 'HIGH' %}high{% endif %}">
+                    {{ event.severity }}
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="4" style="text-align: center;">No security events logged.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <script>
+        // Automatically triggers the browser's PDF/Print dialog when the page loads
+        window.onload = function() {
+            window.print();
+        }
+    </script>
+</body>
+</html>
