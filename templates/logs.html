@@ -10,6 +10,7 @@
                 <th>Destination</th>
                 <th>Protocol</th>
                 <th>Event</th>
+                <th>Origin</th>
                 <th>Severity</th>
             </tr>
         </thead>
@@ -21,6 +22,7 @@
                 <td>{{ log.destination_ip }}</td>
                 <td>{{ log.protocol }}</td>
                 <td>{{ log.event_type }}</td>
+                <td><span class="event-origin {% if log.source_kind == 'LAB' %}event-origin-lab{% endif %}">{{ 'ATTACK LAB' if log.source_kind == 'LAB' else 'UNCLASSIFIED' }}</span></td>
                 <td>
                     {% if log.severity == 'HIGH' or log.severity == 'CRITICAL' %}
                         <span class="badge bg-danger">{{ log.severity }}</span>
@@ -33,7 +35,7 @@
             </tr>
             {% else %}
             <tr>
-                <td colspan="6" class="text-center text-muted py-4">No events logged yet.</td>
+                <td colspan="7" class="text-center text-muted py-4">No events logged yet.</td>
             </tr>
             {% endfor %}
         </tbody>

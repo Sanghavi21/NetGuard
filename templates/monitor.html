@@ -1,29 +1,104 @@
 {% extends 'base.html' %}
+{% block title %}Live network monitor · NetGuard{% endblock %}
 {% block content %}
-<h2 class="mb-4 text-info">System Integration (REST API)</h2>
+<div class="page-heading"><div><span class="eyebrow">NETWORK VISIBILITY / LIVE TELEMETRY</span><h1>Network monitor</h1><p>Live traffic measured automatically from your computer’s network adapters.</p></div><a class="btn btn-outline-info" href="{{ url_for('export_usage_csv') }}">Export collected data ↓</a></div>
 
-<div class="row">
-    <div class="col-md-8">
-        <div class="card p-4 border-info">
-            <h4 class="text-info mb-3">NetGuard JSON API Endpoint</h4>
-            <p class="text-light mb-4">
-                NetGuard features a built-in Application Programming Interface (API). In a real-world enterprise environment, this endpoint allows external Security Information and Event Management (SIEM) tools to securely ingest our threat intelligence data in real-time.
-            </p>
-            
-            <div class="bg-dark p-3 rounded border border-secondary mb-4">
-                <code class="text-success fs-5">GET /api/threats</code>
-            </div>
-            
-            <ul class="text-muted mb-4">
-                <li><strong>Format:</strong> Standard JSON</li>
-                <li><strong>Authentication:</strong> Active Web Session Required</li>
-                <li><strong>Limit:</strong> Returns the 50 most recent security events</li>
-            </ul>
-            
-            <a href="{{ url_for('api_threats') }}" target="_blank" class="btn btn-outline-info p-2 fw-bold">
-                View Raw JSON Output
-            </a>
-        </div>
-    </div>
+<section class="panel netmon-toolbar"><div><span class="live-pulse"></span><strong id="monitor-status">Connecting to adapters…</strong><small id="sample-time">Waiting for first sample</small></div><label for="adapter-select">NETWORK ADAPTER<select id="adapter-select" class="form-select"><option>Detecting adapters…</option></select></label></section>
+
+<div class="netmon-metrics">
+  <section class="panel netmon-metric"><span class="panel-kicker">LIVE DOWNLOAD</span><strong id="download-rate">—</strong><small>Mbps · selected adapter</small><div class="metric-spark download-spark">↓</div></section>
+  <section class="panel netmon-metric"><span class="panel-kicker">LIVE UPLOAD</span><strong id="upload-rate">—</strong><small>Mbps · selected adapter</small><div class="metric-spark upload-spark">↑</div></section>
+  <section class="panel netmon-metric"><span class="panel-kicker">COLLECTED TODAY</span><strong id="today-total">—</strong><small id="today-detail">Download + upload</small><div class="metric-spark">◷</div></section>
+  <section class="panel netmon-metric"><span class="panel-kicker">COLLECTED THIS MONTH</span><strong id="month-total">—</strong><small>Since NetGuard monitoring began</small><div class="metric-spark">▥</div></section>
 </div>
+
+<div class="netmon-content-grid">
+  <section class="panel netmon-chart-panel"><div class="panel-heading"><div><h2>Live traffic</h2><span class="panel-kicker">UPLOAD AND DOWNLOAD · LAST 60 SAMPLES</span></div><span class="netmon-chart-key"><i></i> Download <b></b> Upload</span></div><div class="netmon-chart-wrap"><canvas id="traffic-chart" aria-label="Live network traffic chart"></canvas><div id="chart-empty" class="netmon-chart-empty">The chart will draw as live samples arrive.</div></div></section>
+  <section class="panel netmon-limit-panel"><div class="panel-heading"><div><h2>Monthly limit</h2><span class="panel-kicker">MONITORING ESTIMATE</span></div><span class="quota-icon">▤</span></div><div class="quota-numbers"><strong id="quota-used">— <small>GB USED</small></strong><span>of {{ '%.1f'|format(quota_gb) }} GB</span></div><div class="quota-track" id="quota-track"><i id="quota-fill" style="width:0%"></i></div><div class="quota-foot"><span id="quota-percent">0% used</span><strong id="quota-remaining">— GB remaining</strong></div><form class="quota-form" method="post"><label for="monthly-quota">Monthly limit (GB)</label><div><input id="monthly-quota" class="form-control" type="number" name="monthly_quota_gb" min="0.1" max="10000" step="0.1" value="{{ '%.1f'|format(quota_gb) }}" required><button class="btn btn-outline-info" type="submit">Save limit</button></div></form></section>
+</div>
+
+<section class="panel netmon-adapters"><div class="panel-heading"><div><h2>Detected adapters</h2><span class="panel-kicker">SELECT ONE ADAPTER TO VIEW ITS TRAFFIC</span></div><span id="adapter-count" class="usage-count">SCANNING</span></div><div id="adapter-list" class="netmon-adapter-list"><div class="usage-empty">Reading Windows network interface counters…</div></div></section>
+<p class="netmon-note"><strong>How this measurement works:</strong> NetGuard samples Windows network adapter counters every second while this page is open and saves the measured byte deltas locally. The first sample establishes a baseline; collection starts on the next sample. Adapter counters cannot identify individual applications, and VPN/virtual adapters can mirror traffic from another adapter, so use one adapter at a time. Daily and monthly totals reflect the time NetGuard has been monitoring, not usage from before monitoring started.</p>
+
+<script>
+(() => {
+  const apiUrl = {{ url_for('api_network_usage')|tojson }};
+  const select = document.getElementById('adapter-select');
+  const canvas = document.getElementById('traffic-chart');
+  const ctx = canvas.getContext('2d');
+  const samples = [];
+  let selectedName = '';
+  let busy = false;
+  const fmt = bytes => {
+    if (!Number.isFinite(bytes)) return '—';
+    const units = ['B', 'KB', 'MB', 'GB', 'TB']; let n = Math.max(0, bytes), i = 0;
+    while (n >= 1024 && i < units.length - 1) { n /= 1024; i++; }
+    return `${n.toFixed(i ? 2 : 0)} ${units[i]}`;
+  };
+  const resizeCanvas = () => {
+    const rect = canvas.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.max(1, rect.width * dpr); canvas.height = Math.max(1, rect.height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); draw();
+  };
+  function draw() {
+    const w = canvas.clientWidth, h = canvas.clientHeight;
+    ctx.clearRect(0, 0, w, h);
+    const pad = {l: 38, r: 10, t: 14, b: 22}, cw = w-pad.l-pad.r, ch = h-pad.t-pad.b;
+    ctx.font = '11px system-ui'; ctx.strokeStyle = 'rgba(120,180,210,.13)'; ctx.fillStyle = '#91a9bd'; ctx.lineWidth = 1;
+    for (let i=0;i<4;i++) { const y=pad.t + ch*i/3; ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(w-pad.r,y);ctx.stroke(); }
+    const max = Math.max(0.05, ...samples.flatMap(p => [p.down,p.up]));
+    ctx.fillText(`${max.toFixed(2)} Mbps`, 2, pad.t+4); ctx.fillText('0', 18, h-pad.b+4);
+    const line = (key,color) => {
+      if (samples.length < 2) return;
+      ctx.beginPath(); ctx.strokeStyle=color; ctx.lineWidth=2; ctx.lineJoin='round';
+      samples.forEach((p,i) => { const x=pad.l+cw*i/59, y=pad.t+ch-(p[key]/max)*ch; i?ctx.lineTo(x,y):ctx.moveTo(x,y); }); ctx.stroke();
+    };
+    line('down','#22c9f4'); line('up','#62e7b5');
+  }
+  function setSelected(data) {
+    const available = data.interfaces || [];
+    if (!available.length) {
+      document.getElementById('monitor-status').textContent = 'No network adapters were detected';
+      document.getElementById('adapter-list').innerHTML = '<div class="usage-empty">Windows did not report any network interfaces.</div>';
+      return;
+    }
+    if (!available.some(x => x.name === selectedName)) {
+      selectedName = (available.find(x => x.is_up) || available[0]).name;
+      select.innerHTML = '';
+      available.forEach(x => { const o=document.createElement('option');o.value=x.name;o.textContent=x.name+(x.is_up?' · online':' · offline');select.appendChild(o); });
+      select.value = selectedName;
+    }
+    const item = available.find(x => x.name === selectedName) || available[0];
+    const down = item.download_mbps || 0, up = item.upload_mbps || 0;
+    document.getElementById('monitor-status').textContent = item.is_up ? 'LIVE · Sampling active' : 'Adapter is offline';
+    document.getElementById('sample-time').textContent = `Last sample · ${new Date(data.sampled_at).toLocaleTimeString()}`;
+    document.getElementById('download-rate').textContent = `${down.toFixed(3)} Mbps`;
+    document.getElementById('upload-rate').textContent = `${up.toFixed(3)} Mbps`;
+    const todayBytes = item.upload_bytes + item.download_bytes, monthBytes = item.month_upload_bytes + item.month_download_bytes;
+    document.getElementById('today-total').textContent = fmt(todayBytes);
+    document.getElementById('today-detail').textContent = `↓ ${fmt(item.download_bytes)}  ·  ↑ ${fmt(item.upload_bytes)}`;
+    document.getElementById('month-total').textContent = fmt(monthBytes);
+    const limit = Number({{ quota_gb|tojson }}) * 1024**3, pct = limit ? Math.min(100, Math.round(monthBytes/limit*100)) : 0;
+    document.getElementById('quota-used').innerHTML = `${(monthBytes/1024**3).toFixed(3)} <small>GB USED</small>`;
+    document.getElementById('quota-percent').textContent = `${pct}% used`;
+    document.getElementById('quota-fill').style.width = `${pct}%`;
+    document.getElementById('quota-track').classList.toggle('quota-near', pct >= 80 && pct < 100);
+    document.getElementById('quota-track').classList.toggle('quota-over', pct >= 100);
+    document.getElementById('quota-remaining').textContent = `${(Math.max(0,limit-monthBytes)/1024**3).toFixed(2)} GB remaining`;
+    samples.push({down,up}); if(samples.length>60)samples.shift(); draw();
+    document.getElementById('chart-empty').hidden = samples.length > 1;
+    document.getElementById('adapter-count').textContent = `${available.length} ADAPTER${available.length===1?'':'S'}`;
+    document.getElementById('adapter-list').innerHTML = available.map(x => `<button type="button" class="netmon-adapter ${x.name===selectedName?'selected':''}" data-name="${x.name.replaceAll('&','&amp;').replaceAll('"','&quot;')}" aria-pressed="${x.name===selectedName}"><span class="adapter-state ${x.is_up?'online':''}"></span><span><strong>${x.name.replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;')}</strong><small>${x.is_up?'Connected':'Disconnected'}${x.speed_mbps?` · ${x.speed_mbps} Mbps link`:''}</small></span><span class="adapter-traffic"><b>↓ ${fmt(x.download_bytes)}</b><b>↑ ${fmt(x.upload_bytes)}</b></span></button>`).join('');
+  }
+  async function refresh() {
+    if(busy)return; busy=true;
+    try { const response=await fetch(apiUrl,{cache:'no-store',headers:{'Accept':'application/json'}}); const payload=await response.json().catch(()=>({})); if(!response.ok)throw new Error(payload.error || (response.status===401?'Session expired':`Adapter service returned HTTP ${response.status}`)); setSelected(payload); }
+    catch(e) { document.getElementById('monitor-status').textContent=e.message; document.getElementById('monitor-status').classList.add('text-danger'); }
+    finally { busy=false; }
+  }
+  select.addEventListener('change',()=>{selectedName=select.value;samples.length=0;refresh();});
+  document.getElementById('adapter-list').addEventListener('click',e=>{const b=e.target.closest('[data-name]');if(b){selectedName=b.dataset.name;select.value=selectedName;samples.length=0;refresh();}});
+  window.addEventListener('resize',resizeCanvas); resizeCanvas(); refresh(); window.setInterval(refresh,1000);
+})();
+</script>
 {% endblock %}

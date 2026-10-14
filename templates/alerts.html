@@ -1,32 +1,27 @@
 {% extends 'base.html' %}
+{% block title %}Alert triage · NetGuard{% endblock %}
 {% block content %}
-<h2 class="mb-4">Critical Alerts</h2>
-<div class="card p-3">
-    <table class="table table-dark table-hover mb-0">
-        <thead>
-            <tr>
-                <th>Timestamp</th>
-                <th>Source IP</th>
-                <th>Event Type</th>
-                <th>Severity</th>
-                <th>Status</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for alert in alerts %}
-            <tr>
-                <td>{{ alert.timestamp }}</td>
-                <td>{{ alert.source_ip }}</td>
-                <td>{{ alert.event_type }}</td>
-                <td><span class="badge bg-danger">{{ alert.severity }}</span></td>
-                <td>{{ alert.status }}</td>
-            </tr>
-            {% else %}
-            <tr>
-                <td colspan="5" class="text-center text-muted py-4">No critical alerts detected. System is secure.</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-</div>
+<div class="page-heading"><div><span class="eyebrow">INCIDENT RESPONSE</span><h1>Alert triage</h1><p>Find priority signals, record investigation notes, and add suspicious sources to NetGuard’s application blacklist.</p></div><span class="status-chip">{{ alerts|length }} ALERTS IN VIEW</span></div>
+<section class="panel">
+    <div class="panel-heading"><div><h2>High priority alerts</h2><span class="panel-kicker">FILTER, INVESTIGATE, AND RESPOND</span></div><a class="btn btn-sm btn-outline-info" href="{{ url_for('export_alerts_csv', q=search, severity=severity_filter, status=status_filter) }}">Export filtered CSV ↓</a></div>
+    <form method="GET" action="{{ url_for('alerts') }}" class="alert-filters">
+        <input type="search" name="q" value="{{ search }}" class="form-control" placeholder="Search source IP, event, or details" aria-label="Search alerts">
+        <select name="severity" class="form-select" aria-label="Filter by severity"><option value="">All severities</option><option value="CRITICAL" {% if severity_filter == 'CRITICAL' %}selected{% endif %}>Critical</option><option value="HIGH" {% if severity_filter == 'HIGH' %}selected{% endif %}>High</option></select>
+        <select name="status" class="form-select" aria-label="Filter by status"><option value="">All statuses</option><option value="DETECTED" {% if status_filter == 'DETECTED' %}selected{% endif %}>Detected</option><option value="ACKNOWLEDGED" {% if status_filter == 'ACKNOWLEDGED' %}selected{% endif %}>Acknowledged</option><option value="RESOLVED" {% if status_filter == 'RESOLVED' %}selected{% endif %}>Resolved</option></select>
+        <button class="btn btn-outline-info" type="submit">Apply filters</button><a class="btn btn-quiet" href="{{ url_for('alerts') }}">Reset</a>
+    </form>
+    <p class="scope-note">Blacklist action records the source in NetGuard only; it does not configure your operating system firewall.</p>
+    <form method="POST" action="{{ url_for('bulk_triage_alerts') }}" id="bulk-form" class="bulk-bar" onsubmit="return confirm('Apply this action to all selected alerts?');"><label>Selected alerts <select name="status" class="form-select form-select-sm"><option value="ACKNOWLEDGED">Acknowledge</option><option value="RESOLVED">Resolve</option></select></label><input name="note" maxlength="500" class="form-control form-control-sm" placeholder="Optional shared note"><button type="submit" class="btn btn-sm btn-outline-info">Apply to selected</button></form>
+    <div class="table-responsive"><table class="table table-hover"><thead><tr><th><input id="select-all-alerts" type="checkbox" aria-label="Select all visible alerts"></th><th>DETECTED / SLA</th><th>SOURCE IP</th><th>EVENT</th><th>DETAILS</th><th>SEVERITY</th><th>STATUS</th><th>INVESTIGATION</th><th>RESPONSE</th></tr></thead><tbody>
+    {% for alert in alerts %}
+    {% set sla_limit = 15 if alert.severity == 'CRITICAL' else 60 %}<tr><td><input type="checkbox" form="bulk-form" name="event_ids" value="{{ alert.id }}" class="alert-select" aria-label="Select alert {{ alert.id }}"></td><td class="subtle">{{ alert.timestamp }}<br><span class="sla-chip {% if alert.status == 'DETECTED' and alert.age_minutes > sla_limit %}sla-late{% elif alert.status == 'DETECTED' %}sla-ok{% elif alert.status == 'RESOLVED' %}sla-done{% else %}sla-ok{% endif %}">{% if alert.status == 'RESOLVED' %}Resolved{% elif alert.status == 'ACKNOWLEDGED' %}Acknowledged · {{ alert.age_minutes }}m{% elif alert.age_minutes > sla_limit %}SLA overdue · {{ (alert.age_minutes / 60)|round(1) }}h{% else %}Open · {{ alert.age_minutes }}m{% endif %}</span></td><td><span class="copy-ip">{{ alert.source_ip or 'Unknown' }}</span>{% if alert.source_ip %}<button type="button" class="copy-button" data-copy="{{ alert.source_ip }}" aria-label="Copy source IP">Copy</button>{% endif %}</td><td>{{ alert.event_type }}<br><span class="event-origin {% if alert.source_kind == 'LAB' %}event-origin-lab{% endif %}">{{ 'ATTACK LAB' if alert.source_kind == 'LAB' else 'UNCLASSIFIED' }}</span></td><td><details class="event-details"><summary>Details</summary><span>{{ alert.description or 'No additional details.' }}</span></details></td><td><span class="badge {% if alert.severity == 'CRITICAL' %}bg-danger{% else %}bg-warning text-dark{% endif %}">{{ alert.severity }}</span></td><td><span class="badge {% if alert.status == 'RESOLVED' %}bg-success{% elif alert.status == 'ACKNOWLEDGED' %}bg-info text-dark{% else %}bg-secondary{% endif %}">{{ alert.status }}</span></td><td><form method="POST" action="{{ url_for('triage_alert', event_id=alert.id) }}" class="triage-form"><select name="status" class="form-select form-select-sm" aria-label="Set status for alert {{ alert.id }}"><option value="ACKNOWLEDGED">Acknowledge</option><option value="RESOLVED">Resolve</option><option value="DETECTED">Reopen</option></select><input name="note" maxlength="500" class="form-control form-control-sm" placeholder="Analyst note" aria-label="Analyst note for alert {{ alert.id }}"><button class="btn btn-sm btn-outline-info" type="submit">Save</button></form></td><td>{% if alert.is_blocklisted %}<span class="status-chip">ON LIST</span>{% elif alert.source_ip %}<form method="POST" action="{{ url_for('block_alert_source', event_id=alert.id) }}" onsubmit="return confirm('Add this IP to the NetGuard application blacklist? This does not change your operating system firewall.');"><button type="submit" class="btn btn-sm btn-outline-danger">Add to list</button></form>{% else %}<span class="subtle">No IP</span>{% endif %}</td></tr>
+    {% else %}<tr><td colspan="9" class="empty-state">No alerts match these filters.</td></tr>{% endfor %}
+    </tbody></table></div>
+</section>
+<section class="panel recent-panel"><div class="panel-heading"><div><h2>Investigation history</h2><span class="panel-kicker">LATEST 25 STATUS CHANGES</span></div></div><div class="table-responsive"><table class="table"><thead><tr><th>TIME</th><th>ALERT</th><th>ANALYST</th><th>STATUS</th><th>NOTE</th></tr></thead><tbody>
+{% for item in history %}<tr><td class="subtle">{{ item.timestamp }}</td><td>#{{ item.event_id }} · {{ item.event_type }} · {{ item.source_ip }}</td><td>{{ item.username }}</td><td>{{ item.status }}</td><td>{{ item.note or '—' }}</td></tr>{% else %}<tr><td colspan="5" class="empty-state">Triage actions will be recorded here.</td></tr>{% endfor %}
+</tbody></table></div></section>
 {% endblock %}
+{% block scripts %}<script>
+(() => {const selectAll=document.getElementById('select-all-alerts');if(selectAll)selectAll.addEventListener('change',()=>document.querySelectorAll('.alert-select').forEach(box=>box.checked=selectAll.checked));document.querySelectorAll('[data-copy]').forEach(button=>button.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(button.dataset.copy);button.textContent='Copied';setTimeout(()=>button.textContent='Copy',1200);}catch{button.textContent='Copy failed';setTimeout(()=>button.textContent='Copy',1200);}}));})();
+</script>{% endblock %}

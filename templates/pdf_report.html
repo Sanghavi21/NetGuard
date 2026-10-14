@@ -16,7 +16,7 @@
 <body>
     <div class="header">
         <h1>NETGUARD - Official Security Audit Report</h1>
-        <p>Generated automatically by the NetGuard Intrusion Detection Engine</p>
+        <p>Stored event records exported from NetGuard. This report is not a packet-capture or firewall log.</p>
     </div>
     
     <h3>Detected Network Security Events</h3>
@@ -26,6 +26,7 @@
                 <th>Timestamp</th>
                 <th>Source IP</th>
                 <th>Event Type</th>
+                <th>Origin</th>
                 <th>Severity</th>
             </tr>
         </thead>
@@ -35,13 +36,14 @@
                 <td>{{ event.timestamp }}</td>
                 <td>{{ event.source_ip }}</td>
                 <td>{{ event.event_type }}</td>
+                <td>{{ 'Attack Lab (simulated)' if event.source_kind == 'LAB' else 'Unclassified record' }}</td>
                 <td class="{% if event.severity == 'CRITICAL' %}critical{% elif event.severity == 'HIGH' %}high{% endif %}">
                     {{ event.severity }}
                 </td>
             </tr>
             {% else %}
             <tr>
-                <td colspan="4" style="text-align: center;">No security events logged.</td>
+                <td colspan="5" style="text-align: center;">No security events logged.</td>
             </tr>
             {% endfor %}
         </tbody>

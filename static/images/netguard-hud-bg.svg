@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" fill="none">
+  <defs>
+    <pattern id="hex" width="30" height="52" patternUnits="userSpaceOnUse"><path d="M15 1 29 9v16l-14 8L1 25V9L15 1Zm0 26 14 8v16l-14 8L1 51V35l14-8Z" stroke="#26bde7" stroke-opacity=".18" stroke-width="1"/></pattern>
+    <radialGradient id="blueGlow"><stop stop-color="#06b8ed" stop-opacity=".38"/><stop offset=".58" stop-color="#0376b4" stop-opacity=".18"/><stop offset="1" stop-color="#03101e" stop-opacity="0"/></radialGradient>
+    <radialGradient id="core"><stop stop-color="#020610"/><stop offset=".84" stop-color="#020610"/><stop offset=".93" stop-color="#061426"/><stop offset="1" stop-color="#0879ad"/></radialGradient>
+    <filter id="cyanGlow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="8" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <linearGradient id="shade" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#06111e" stop-opacity=".05"/><stop offset=".52" stop-color="#06111e" stop-opacity=".1"/><stop offset="1" stop-color="#06111e" stop-opacity=".35"/></linearGradient>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#hex)"/>
+  <circle cx="1510" cy="505" r="590" fill="url(#blueGlow)"/>
+  <g stroke="#1ac9fa" stroke-linecap="round">
+    <circle cx="1510" cy="505" r="405" stroke-opacity=".42" stroke-width="1.5"/>
+    <circle cx="1510" cy="505" r="390" stroke-opacity=".86" stroke-width="2" stroke-dasharray="1 8"/>
+    <circle cx="1510" cy="505" r="352" stroke-opacity=".33" stroke-width="1"/>
+    <circle cx="1510" cy="505" r="320" stroke-opacity=".95" stroke-width="40" stroke-dasharray="210 28 64 18 122 34 60 30" filter="url(#cyanGlow)"/>
+    <circle cx="1510" cy="505" r="280" stroke-opacity=".72" stroke-width="3" stroke-dasharray="390 12 105 18 225 18 155 24"/>
+    <circle cx="1510" cy="505" r="250" stroke-opacity=".78" stroke-width="2"/>
+    <circle cx="1510" cy="505" r="232" stroke-opacity=".95" stroke-width="7"/>
+  </g>
+  <circle cx="1510" cy="505" r="219" fill="url(#core)" stroke="#07111f" stroke-width="9"/>
+  <g stroke="#46dcff" stroke-opacity=".75" stroke-width="2">
+    <path d="M1510 86v42m0 754v42M1091 505h42m754 0h42"/>
+    <path d="m1214 209 30 30m532 532 30 30m0-592-30 30m-532 532-30 30"/>
+    <path d="M1510 143v24m0 676v24M1148 505h24m676 0h24" stroke-width="7"/>
+  </g>
+  <g fill="#2de0ff" filter="url(#cyanGlow)"><circle cx="1510" cy="100" r="7"/><circle cx="1908" cy="505" r="7"/><circle cx="118" cy="810" r="5"/><circle cx="1054" cy="272" r="5"/><circle cx="1826" cy="850" r="6"/></g>
+  <g stroke="#21cffa" stroke-opacity=".46" stroke-width="1"><path d="M1064 256 1153 318 1207 305"/><path d="M1818 852 1722 797 1664 811"/><path d="M1903 490 1856 470 1828 478"/></g>
+  <rect width="1920" height="1080" fill="url(#shade)"/>
+</svg>

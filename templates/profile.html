@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+{% block title %}Admin profile · NetGuard{% endblock %}
+{% block content %}
+<div class="page-heading"><div><span class="eyebrow">SECURITY OPERATIONS / ACCOUNT</span><h1>Admin profile</h1><p>Operator identity, account security, and recent NetGuard activity.</p></div><span class="status-chip">{{ access_level|upper }}</span></div>
+
+<div class="profile-admin-stats">
+    <section class="panel profile-stat"><span class="panel-kicker">SECURITY EVENTS</span><strong>{{ event_summary.total or 0 }}</strong><small>Recorded in the event store</small></section>
+    <section class="panel profile-stat"><span class="panel-kicker">OPEN HIGH / CRITICAL</span><strong>{{ event_summary.open_high or 0 }}</strong><small>Needs analyst review</small></section>
+    <section class="panel profile-stat"><span class="panel-kicker">OPEN CRITICAL</span><strong>{{ event_summary.open_critical or 0 }}</strong><small>Unresolved critical events</small></section>
+    <section class="panel profile-stat"><span class="panel-kicker">AUDIT ACTIONS · 30 DAYS</span><strong>{{ audit_count }}</strong><small>For this account</small></section>
+</div>
+
+<div class="profile-grid profile-admin-grid">
+    <div class="profile-sidebar-stack">
+        <section class="panel profile-card">
+            <div class="profile-orb"><span>{{ (profile.display_name or profile.username)[0]|upper }}</span></div>
+            <h2>{{ profile.display_name or profile.username }}</h2>
+            <p class="profile-handle">@{{ profile.username }}</p>
+            <span class="profile-role-pill">{{ access_level }}</span>
+            <div class="profile-divider"></div>
+            <div class="profile-meta"><span>JOB TITLE</span><strong>{{ profile.job_title or 'Not set' }}</strong></div>
+            <div class="profile-meta"><span>DEPARTMENT</span><strong>{{ profile.department or 'Not set' }}</strong></div>
+            <div class="profile-meta"><span>ACCOUNT CREATED</span><strong>{{ profile.created_at }}</strong></div>
+            <div class="profile-meta"><span>ACCOUNT ID</span><strong>#{{ profile.id }}</strong></div>
+            <div class="profile-meta"><span>LAST SIGN IN</span><strong>{{ last_login.timestamp if last_login else 'No sign-in recorded' }}</strong></div>
+            <div class="profile-meta"><span>SIGN-IN ADDRESS</span><strong class="profile-address">{{ last_login.ip_address if last_login and last_login.ip_address else 'Not recorded' }}</strong></div>
+            <div class="profile-security"><span class="security-icon">◆</span><span>Credential protection<small>Password is stored as a one-way hash. Password and profile changes are written to the audit trail.</small></span></div>
+        </section>
+        <section class="panel profile-activity-panel">
+            <div class="panel-heading"><div><h2>Recent account activity</h2><span class="panel-kicker">LATEST AUDIT RECORDS</span></div></div>
+            <div class="profile-activity-list">
+                {% for item in recent_activity %}<div class="profile-activity-item"><span class="activity-dot {% if item.action == 'LOGIN' %}activity-login{% elif item.action == 'LOGOUT' %}activity-logout{% endif %}"></span><span class="profile-activity-copy"><strong>{{ item.action|replace('_', ' ')|title }}</strong><small>{{ item.timestamp }}{% if item.ip_address %} · {{ item.ip_address }}{% endif %}</small></span></div>
+                {% else %}<div class="usage-empty">No account activity has been logged yet.</div>{% endfor %}
+            </div>
+        </section>
+    </div>
+
+    <div class="profile-forms">
+        <section class="panel profile-form-panel">
+            <div class="panel-heading"><div><h2>Operator details</h2><span class="panel-kicker">CONTACT AND TEAM INFORMATION</span></div><span class="profile-step">01</span></div>
+            <form method="POST" action="{{ url_for('profile') }}" class="profile-form">
+                <input type="hidden" name="action" value="profile">
+                <label for="display-name">Display name</label><input id="display-name" name="display_name" class="form-control" maxlength="80" value="{{ profile.display_name or profile.username }}" required>
+                <div class="profile-field-grid"><div><label for="job-title">Job title</label><input id="job-title" name="job_title" class="form-control" maxlength="80" value="{{ profile.job_title or '' }}" placeholder="e.g. SOC administrator"></div><div><label for="department">Department / team</label><input id="department" name="department" class="form-control" maxlength="80" value="{{ profile.department or '' }}" placeholder="e.g. Network security"></div></div>
+                <div class="profile-field-grid"><div><label for="email">Work email <span class="optional-label">OPTIONAL</span></label><input type="email" id="email" name="email" class="form-control" maxlength="120" value="{{ profile.email or '' }}" placeholder="analyst@example.com"></div><div><label for="phone">Contact number <span class="optional-label">OPTIONAL</span></label><input type="tel" id="phone" name="phone" class="form-control" maxlength="30" value="{{ profile.phone or '' }}" placeholder="+1 555 010 1234"></div></div>
+                <label for="username">Username</label><input id="username" class="form-control field-locked" value="{{ profile.username }}" readonly><small class="field-help">The local account username cannot be changed here.</small>
+                <button class="btn btn-outline-info" type="submit">Save operator details</button>
+            </form>
+        </section>
+        <section class="panel profile-form-panel">
+            <div class="panel-heading"><div><h2>Change password</h2><span class="panel-kicker">USE AT LEAST 10 CHARACTERS</span></div><span class="profile-step">02</span></div>
+            <form method="POST" action="{{ url_for('profile') }}" class="profile-form" id="password-form">
+                <input type="hidden" name="action" value="password">
+                <label for="current-password">Current password</label><input id="current-password" name="current_password" type="password" class="form-control" autocomplete="current-password" required>
+                <label for="new-password">New password</label><input id="new-password" name="new_password" type="password" class="form-control" minlength="10" autocomplete="new-password" required><div class="password-strength"><span id="strength-bar"></span></div><small id="strength-label" class="field-help">Strength indicator · password stays private</small>
+                <label for="confirm-password">Confirm new password</label><input id="confirm-password" name="confirm_password" type="password" class="form-control" minlength="10" autocomplete="new-password" required>
+                <button class="btn btn-outline-info" type="submit">Update password</button>
+            </form>
+        </section>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}<script>
+(() => {const input=document.getElementById('new-password'),bar=document.getElementById('strength-bar'),label=document.getElementById('strength-label');if(!input)return;input.addEventListener('input',()=>{const value=input.value;let score=0;if(value.length>=10)score++;if(/[A-Z]/.test(value)&&/[a-z]/.test(value))score++;if(/\d/.test(value))score++;if(/[^A-Za-z0-9]/.test(value))score++;const names=['Too short','Fair','Good','Strong','Very strong'];const colors=['#ff647c','#ff9e64','#ffd166','#65e6b1','#42d9f5'];bar.style.width=`${Math.max(12,score*25)}%`;bar.style.background=colors[score];label.textContent=`${names[score]} · password stays private`;});})();
+</script>{% endblock %}

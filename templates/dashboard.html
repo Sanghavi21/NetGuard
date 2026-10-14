@@ -1,114 +1,101 @@
 {% extends 'base.html' %}
+{% block title %}Overview · NetGuard{% endblock %}
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h2>SOC Dashboard</h2>
-    <div>
-        <form action="{{ url_for('clear_data') }}" method="POST" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete all security logs? This cannot be undone.');">
-            <button type="submit" class="btn btn-sm btn-outline-danger me-3">🗑️ Clear All Data</button>
-        </form>
-        <!-- The badge now has an ID so our script can change the text -->
-        <span class="badge bg-success p-2" id="live-badge">🟢 SYSTEM ACTIVE (LIVE: 10s)</span>
-    </div>
+<div class="page-heading">
+    <div><span class="eyebrow">SECURITY OPERATIONS CENTER</span><h1>Good to see you, {{ username }}.</h1><p>Live host visibility and stored security events. Attack Lab records are clearly marked as simulated.</p></div>
+    <div class="heading-actions"><form method="GET" action="{{ url_for('dashboard') }}" class="range-select"><label for="range-select">WINDOW</label><select id="range-select" name="range" onchange="this.form.submit()"><option value="24h" {% if range_key == '24h' %}selected{% endif %}>24 hours</option><option value="7d" {% if range_key == '7d' %}selected{% endif %}>7 days</option><option value="30d" {% if range_key == '30d' %}selected{% endif %}>30 days</option></select></form><a class="btn btn-outline-info" href="{{ url_for('live_connections') }}">⇄ View live connections</a></div>
 </div>
 
-{% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-        {% for category, message in messages %}
-            <div class="alert alert-{{ category }}">{{ message }}</div>
-        {% endfor %}
-    {% endif %}
-{% endwith %}
+<div class="metric-grid">
+    <article class="metric-card metric-cyan"><div class="metric-label">Events recorded</div><div class="metric-value" id="metric-total">{{ total_events }}</div><div class="metric-foot">STORED · LAB ITEMS LABELLED</div></article>
+    <article class="metric-card metric-orange"><div class="metric-label">High severity</div><div class="metric-value" id="metric-high">{{ high_alerts }}</div><div class="metric-foot">NEEDS REVIEW</div></article>
+    <article class="metric-card metric-red"><div class="metric-label">Critical threats</div><div class="metric-value" id="metric-critical">{{ critical_alerts }}</div><div class="metric-foot">PRIORITY SIGNALS</div></article>
+    <article class="metric-card metric-mint"><div class="metric-label">Open incidents</div><div class="metric-value" id="metric-open">{{ open_alerts }}</div><div class="metric-foot">NOT YET RESOLVED</div></article>
+    <article class="metric-card metric-violet"><div class="metric-label">Risk index</div><div class="metric-value" id="metric-risk">{{ risk_score }}</div><div class="metric-foot">RULE-BASED · 0–100</div></article>
+</div>
+<div class="event-provenance-note"><strong>Event provenance:</strong> dashboard counts summarize stored event records. Entries tagged <span class="event-origin event-origin-lab">ATTACK LAB</span> are synthetic exercises; older records are tagged unclassified. NetGuard’s live connections page reads actual host sockets but does not inspect packet payloads.</div>
 
-<div class="row mb-4">
-    <div class="col-md-3">
-        <div class="card p-3 text-center border-info">
-            <h6 class="text-light">Total Events Logged</h6>
-            <h3 class="text-info">{{ total_events }}</h3>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card p-3 text-center border-warning">
-            <h6 class="text-light">High Threats</h6>
-            <h3 class="text-warning">{{ high_alerts }}</h3>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card p-3 text-center border-danger">
-            <h6 class="text-light">Critical Alerts</h6>
-            <h3 class="text-danger">{{ critical_alerts }}</h3>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card p-3 text-center border-success">
-            <h6 class="text-light">Database Status</h6>
-            <h3 class="text-success">ONLINE</h3>
-        </div>
-    </div>
+<div class="dashboard-grid">
+    <section class="panel">
+        <div class="panel-heading"><div><h2>Threat activity</h2><span class="panel-kicker">EVENTS · {{ range_key|upper }} WINDOW</span></div><span class="badge bg-dark border border-secondary" id="live-updated">LIVE · UPDATING</span></div>
+        <div class="chart-wrap"><canvas id="threat-chart" aria-label="Threat activity over the last seven days"></canvas></div>
+    </section>
+    <section class="panel radar-panel">
+        <div class="radar-copy"><span class="eyebrow">HOST VISIBILITY</span><h2 style="font-size:18px;font-weight:800">Local socket inventory</h2><p>Inspect current TCP/UDP connections, listening ports, and process names from this Windows host.</p><a class="btn btn-outline-info" href="{{ url_for('live_connections') }}">Inspect live connections →</a></div>
+        <div class="radar" aria-hidden="true"><div class="radar-ring"></div><div class="radar-ring r2"></div><div class="radar-ring r3"></div><div class="radar-sweep"></div><div class="radar-core"></div><div class="radar-node n1"></div><div class="radar-node n2"></div><div class="radar-node n3"></div><span class="radar-dot"></span></div>
+    </section>
 </div>
 
-<h4 class="mb-3">Recent Security Events</h4>
-<div class="card p-3">
-    <table class="table table-dark table-hover mb-0">
-        <thead>
-            <tr>
-                <th>Origin</th>
-                <th>Source IP</th>
-                <th>Event Type</th>
-                <th>Severity</th>
-                <th>Status</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for event in recent_events %}
-            <tr>
-                <td>{{ event.location }}</td>
-                <td>{{ event.source_ip }}</td>
-                <td>{{ event.event_type }}</td>
-                <td>
-                    {% if event.severity == 'CRITICAL' %}
-                        <span class="badge bg-danger">CRITICAL</span>
-                    {% else %}
-                        <span class="badge bg-warning text-dark">{{ event.severity }}</span>
-                    {% endif %}
-                </td>
-                <td class="text-success">{{ event.status }}</td>
-            </tr>
-            {% else %}
-            <tr><td colspan="5" class="text-center text-muted">No recent events.</td></tr>
-            {% endfor %}
-        </tbody>
-    </table>
+<div class="dashboard-grid chart-row">
+    <section class="panel severity-panel">
+        <div class="panel-heading"><div><h2>Severity distribution</h2><span class="panel-kicker">EVENT MIX · {{ range_key|upper }} WINDOW</span></div><span class="badge bg-dark border border-secondary">LIVE DATA</span></div>
+        <div class="severity-content"><div class="severity-chart-wrap"><canvas id="severity-chart" aria-label="Security events grouped by severity"></canvas><div class="severity-total"><strong id="severity-total">{{ total_events }}</strong><span>EVENTS</span></div></div><div class="severity-legend" id="severity-legend"></div></div>
+    </section>
+    <section class="panel insight-panel"><span class="eyebrow">ANALYST SNAPSHOT</span><h2>Focus on signals that repeat.</h2><p>Repeated sources and recent bursts are ranked beside your event stream to help prioritize review.</p><a class="btn btn-outline-info" href="{{ url_for('alerts') }}">Open alert triage →</a><div class="insight-orbit" aria-hidden="true"><i></i><i></i><b>NG</b></div></section>
 </div>
 
-<!-- Visible Auto-Refresh Script -->
-<!-- Visible Auto-Refresh & Audio Alert Script -->
+<div class="dashboard-grid recent-panel">
+    <section class="panel">
+        <div class="panel-heading"><div><h2>Recorded security events</h2><span class="panel-kicker">STORED EVENT HISTORY · LAB ENTRIES LABELLED</span></div><a class="btn btn-sm btn-outline-info" href="{{ url_for('logs') }}">View all logs →</a></div>
+        <div class="table-responsive"><table class="table table-hover"><thead><tr><th>TIME</th><th>ORIGIN</th><th>SOURCE</th><th>EVENT</th><th>SEVERITY</th><th>STATUS</th></tr></thead><tbody id="recent-events">
+        {% for event in recent_events %}<tr><td class="subtle">{{ event.timestamp }}</td><td><span class="event-origin {% if event.source_kind == 'LAB' %}event-origin-lab{% endif %}">{{ 'ATTACK LAB' if event.source_kind == 'LAB' else 'UNCLASSIFIED' }}</span></td><td>{{ event.source_ip or 'Unknown' }}</td><td>{{ event.event_type }}</td><td><span class="badge {% if event.severity == 'CRITICAL' %}bg-danger{% elif event.severity == 'HIGH' %}bg-warning text-dark{% else %}bg-info text-dark{% endif %}">{{ event.severity }}</span></td><td><span class="status-chip">{{ event.status }}</span></td></tr>
+        {% else %}<tr><td class="empty-state" colspan="6">No stored security events. Open Live connections for current host sockets; use Attack Lab only for labelled simulation events.</td></tr>{% endfor %}
+        </tbody></table></div>
+    </section>
+    <section class="panel">
+        <div class="panel-heading"><div><h2>Repeat sources</h2><span class="panel-kicker">TOP IPs · {{ range_key|upper }}</span></div><a class="btn btn-sm btn-outline-info" href="{{ url_for('ips') }}">Manage →</a></div>
+        {% set max_source = top_sources[0].total if top_sources else 1 %}
+        {% for source in top_sources %}{% set source_risk = [100, source.total * 10 + source.critical * 18 + source.targets * 4]|min %}<a class="source-row" href="{{ url_for('alerts', q=source.source_ip) }}"><span class="source-ip">{{ source.source_ip }} <small class="risk-tag risk-{{ 'high' if source_risk >= 70 else 'medium' if source_risk >= 35 else 'low' }}">RISK {{ source_risk }}</small></span><span class="source-count">{{ source.total }} events · {{ source.targets }} targets</span><div class="source-bar"><i style="width: {{ (source.total / max_source * 100)|round|int }}%"></i></div></a>
+        {% else %}<div class="empty-state">No source activity in this time window.</div>{% endfor %}
+        <div class="mt-3"><a class="btn btn-sm btn-outline-info" href="{{ url_for('alerts') }}">Open alert triage →</a></div>
+    </section>
+</div>
+<div class="dashboard-grid recent-panel">
+    <section class="panel"><div class="panel-heading"><div><h2>Correlation signals</h2><span class="panel-kicker">3 OR MORE EVENTS FROM ONE SOURCE IN THE PAST HOUR</span></div><span class="badge bg-dark border border-secondary">LOCAL RULE</span></div>
+        {% for burst in bursts %}<a class="source-row correlation-row" href="{{ url_for('alerts', q=burst.source_ip) }}"><span class="source-ip">{{ burst.source_ip }}</span><span class="source-count">{{ burst.total }} events</span><div class="burst-detail">{{ burst.targets }} distinct destinations · {{ burst.critical }} critical events in the last hour</div></a>{% else %}<div class="empty-state">No repeated-source bursts detected in the last hour.</div>{% endfor %}
+    </section>
+    <section class="panel network-panel"><div class="panel-heading"><div><h2>Network signal field</h2><span class="panel-kicker">2D THREAT VISUALIZATION</span></div><a class="btn btn-sm btn-outline-info" href="{{ url_for('monitor') }}">Usage monitor →</a></div><div class="network-stage" aria-hidden="true"><div class="network-hud"><div class="network-hud-ring hud-ring-one"></div><div class="network-hud-ring hud-ring-two"></div><div class="network-hud-ring hud-ring-three"></div><div class="network-hud-dash dash-one"></div><div class="network-hud-dash dash-two"></div><span class="network-hud-core">NG</span><i class="network-hud-node hud-node-one"></i><i class="network-hud-node hud-node-two"></i><i class="network-hud-node hud-node-three"></i><i class="network-hud-node hud-node-four"></i></div></div><p class="network-caption">Animated 2D illustration · not geographic or live device discovery</p></section>
+</div>
+{% endblock %}
+{% block scripts %}
 <script>
-    // 1. Audible Alarm Logic
-    const currentThreats = {{ critical_alerts }} + {{ high_alerts }};
-    const previousThreats = localStorage.getItem('netguard_threat_count');
-    
-    if (previousThreats !== null && currentThreats > previousThreats) {
-        // Play a short beep if the threat count went up
-        const alertSound = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
-        alertSound.volume = 0.5; // Set volume to 50%
-        alertSound.play().catch(e => console.log("Click anywhere on the dashboard first to allow audio."));
-    }
-    
-    // Save current count for the next reload
-    localStorage.setItem('netguard_threat_count', currentThreats);
-
-    // 2. Live Refresh Timer Logic
-    let timeLeft = 10;
-    const badge = document.getElementById('live-badge');
-    
-    setInterval(function() {
-        timeLeft--;
-        if (timeLeft > 0) {
-            badge.innerHTML = "🟢 SYSTEM ACTIVE (LIVE: " + timeLeft + "s)";
-        } else {
-            badge.innerHTML = "🔄 FETCHING DATA...";
-            window.location.reload();
-        }
-    }, 1000);
+(() => {
+  let rows = {{ trend|tojson }};
+  let severityRows = {{ severity_counts|tojson }};
+  const range = {{ range_key|tojson }};
+  const canvas = document.getElementById('threat-chart');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const severityCanvas = document.getElementById('severity-chart');
+  const severityCtx = severityCanvas ? severityCanvas.getContext('2d') : null;
+  const severityColors = {CRITICAL:'#ff647c',HIGH:'#ffb45b',MEDIUM:'#42d9f5',LOW:'#65e6b1',UNKNOWN:'#8798ae'};
+  const drawSeverity = () => {
+    if (!severityCanvas || !severityCtx) return;
+    const rect=severityCanvas.getBoundingClientRect(); if(!rect.width||!rect.height)return;
+    const ratio=window.devicePixelRatio||1;severityCanvas.width=rect.width*ratio;severityCanvas.height=rect.height*ratio;severityCtx.setTransform(ratio,0,0,ratio,0,0);
+    const total=severityRows.reduce((sum,row)=>sum+Number(row.total||0),0);const cx=rect.width/2,cy=rect.height/2,r=Math.min(rect.width,rect.height)*.39;let angle=-Math.PI/2;
+    severityCtx.clearRect(0,0,rect.width,rect.height);severityRows.forEach(row=>{const value=Number(row.total||0);if(!value||!total)return;const next=angle+value/total*Math.PI*2;severityCtx.beginPath();severityCtx.arc(cx,cy,r,angle,next);severityCtx.strokeStyle=severityColors[row.severity]||severityColors.UNKNOWN;severityCtx.lineWidth=13;severityCtx.lineCap='round';severityCtx.stroke();angle=next;});
+    const totalNode=document.getElementById('severity-total');if(totalNode)totalNode.textContent=total;
+    const legend=document.getElementById('severity-legend');if(legend){legend.replaceChildren();['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN'].forEach(level=>{const row=severityRows.find(item=>item.severity===level),value=Number(row?.total||0);if(!value)return;const item=document.createElement('div');item.className='severity-item';const dot=document.createElement('i');dot.style.background=severityColors[level];const label=document.createElement('span');label.textContent=level;const count=document.createElement('strong');count.textContent=value;item.append(dot,label,count);legend.append(item);});if(!legend.children.length){const empty=document.createElement('span');empty.className='field-help';empty.textContent='No events recorded in this window';legend.append(empty);}}
+  };
+  const draw = () => {
+    const rect = canvas.getBoundingClientRect(); if (!rect.width || !rect.height) return;
+    const ratio = window.devicePixelRatio || 1; canvas.width = rect.width * ratio; canvas.height = rect.height * ratio; ctx.setTransform(ratio,0,0,ratio,0,0);
+    const w=rect.width,h=rect.height,p={l:34,r:10,t:12,b:25}, iw=w-p.l-p.r, ih=h-p.t-p.b;
+    const days=rows.map(r=>r.day); const vals=rows.map(r=>Number(r.total||0)); const crit=rows.map(r=>Number(r.critical||0)); const max=Math.max(4,...vals); ctx.clearRect(0,0,w,h);
+    ctx.font='9px monospace'; ctx.textBaseline='middle';
+    for(let n=0;n<=3;n++){const y=p.t+ih*n/3;ctx.strokeStyle='#233147';ctx.beginPath();ctx.moveTo(p.l,y);ctx.lineTo(w-p.r,y);ctx.stroke();ctx.fillStyle='#71829a';ctx.textAlign='right';ctx.fillText(String(Math.round(max*(1-n/3))),p.l-8,y);}
+    const x=i=>p.l+(days.length===1?iw/2:iw*i/(days.length-1)); const y=v=>p.t+ih-(v/max)*ih;
+    const line=(values,color,width)=>{ctx.beginPath();values.forEach((v,i)=>i?ctx.lineTo(x(i),y(v)):ctx.moveTo(x(i),y(v)));ctx.strokeStyle=color;ctx.lineWidth=width;ctx.lineJoin='round';ctx.lineCap='round';ctx.stroke();};
+    const fill=ctx.createLinearGradient(0,p.t,0,h-p.b);fill.addColorStop(0,'#42d9f533');fill.addColorStop(1,'#42d9f500');ctx.beginPath();vals.forEach((v,i)=>i?ctx.lineTo(x(i),y(v)):ctx.moveTo(x(i),y(v)));ctx.lineTo(x(Math.max(0,days.length-1)),h-p.b);ctx.lineTo(x(0),h-p.b);ctx.closePath();ctx.fillStyle=fill;ctx.fill();
+    line(vals,'#42d9f5',2.5);line(crit,'#ff647c',1.5);
+    vals.forEach((v,i)=>{ctx.beginPath();ctx.arc(x(i),y(v),3,0,Math.PI*2);ctx.fillStyle='#101827';ctx.fill();ctx.strokeStyle='#42d9f5';ctx.lineWidth=2;ctx.stroke();if(days.length<=12||i%Math.ceil(days.length/6)===0||i===days.length-1){ctx.fillStyle='#788aa2';ctx.textAlign='center';ctx.textBaseline='top';ctx.fillText(range==='24h'?days[i].slice(-5):days[i].slice(5),x(i),h-p.b+7);}});
+  }; draw(); drawSeverity(); new ResizeObserver(()=>{draw();drawSeverity();}).observe(canvas);
+  let busy=false;
+    const updateLive=async()=>{if(busy||document.hidden)return;busy=true;try{const response=await fetch(`{{ url_for('api_threats') }}?range=${range}`,{headers:{'Accept':'application/json'}});if(!response.ok)throw new Error('Feed unavailable');const payload=await response.json();const stats=payload.stats||{};for(const [key,value] of Object.entries({total:stats.total,high:stats.high,critical:stats.critical,open:stats.open,risk:stats.risk})){const node=document.getElementById(`metric-${key}`);if(node&&value!==undefined)node.textContent=value;}rows=payload.trend||rows;severityRows=payload.severity_counts||severityRows;draw();drawSeverity();const status=document.getElementById('live-updated');if(status)status.textContent=`LIVE · ${new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'})}`;
+    const body=document.getElementById('recent-events');if(body&&Array.isArray(payload.data)){const items=payload.data.slice(0,5);body.replaceChildren();if(!items.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=6;td.className='empty-state';td.textContent='No stored events in this window. Open Live connections to inspect actual host sockets.';tr.append(td);body.append(tr);}else{for(const event of items){const tr=document.createElement('tr');const time=document.createElement('td');time.className='subtle';time.textContent=event.timestamp||'';tr.append(time);const origin=document.createElement('td'),originBadge=document.createElement('span');originBadge.className=`event-origin ${event.source_kind==='LAB'?'event-origin-lab':''}`;originBadge.textContent=event.source_kind==='LAB'?'ATTACK LAB':'UNCLASSIFIED';origin.append(originBadge);tr.append(origin);for(const value of [event.source_ip||'Unknown',event.event_type||'Unknown']){const td=document.createElement('td');td.textContent=value;tr.append(td);}const severity=document.createElement('td'),badge=document.createElement('span');badge.className=`badge ${event.severity==='CRITICAL'?'bg-danger':event.severity==='HIGH'?'bg-warning text-dark':'bg-info text-dark'}`;badge.textContent=event.severity||'UNKNOWN';severity.append(badge);tr.append(severity);const state=document.createElement('td'),chip=document.createElement('span');chip.className='status-chip';chip.textContent=event.status||'DETECTED';state.append(chip);tr.append(state);body.append(tr);}}}
+  }catch(error){const status=document.getElementById('live-updated');if(status)status.textContent='LIVE · RECONNECTING';}finally{busy=false;}};
+  updateLive();setInterval(updateLive,15000);
+})();
 </script>
 {% endblock %}

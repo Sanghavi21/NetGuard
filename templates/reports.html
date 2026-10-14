@@ -1,53 +1,24 @@
 {% extends 'base.html' %}
+{% block title %}Reports & audit · NetGuard{% endblock %}
 {% block content %}
-<h2 class="mb-4">System Reports & Auditing</h2>
+<div class="page-heading"><div><span class="eyebrow">ADMINISTRATION / EVIDENCE</span><h1>Reports & audit</h1><p>Export incident data and review who accessed or changed this local security workspace.</p></div><span class="status-chip">AUDIT TRAIL · {{ audit_count }} MATCHES</span></div>
 
-<div class="row mb-5">
-    <div class="col-md-6">
-        <div class="card p-5 text-center border-success">
-            <h4 class="mb-3 text-success">Export Security Logs</h4>
-            <p class="text-light mb-4">Download a complete CSV report of all detected network events and intrusions for offline analysis.</p>
-            <a href="{{ url_for('export_csv') }}" class="btn btn-success w-100 fw-bold">Download CSV Report</a>
-        </div>
-    </div>
-    <div class="col-md-6">
-        <div class="card p-5 text-center border-info">
-            <h4 class="mb-3 text-info">PDF Generation</h4>
-            <p class="text-light mb-4">Generate and download a formatted PDF security document for auditing and viva demonstrations.</p>
-            <a href="{{ url_for('pdf_report') }}" target="_blank" class="btn btn-info w-100 fw-bold text-white">Generate PDF Report</a>
-        </div>
-    </div>
+<div class="report-export-grid">
+    <section class="panel export-panel"><div class="export-icon">▤</div><h2>Security event report</h2><p>Download event records for offline analysis and project documentation.</p><div class="export-actions"><a href="{{ url_for('export_csv') }}" class="btn btn-outline-info">Download events CSV</a><a href="{{ url_for('pdf_report') }}" class="btn btn-quiet">Create PDF report</a></div></section>
+    <section class="panel export-panel"><div class="export-icon export-icon-green">◈</div><h2>Audit evidence</h2><p>Export the filtered access history currently shown below, including sign-ins and profile changes.</p><div class="export-actions"><a href="{{ url_for('export_audit_csv', q=audit_search, action=audit_action, window=audit_window) }}" class="btn btn-outline-info">Export filtered audit CSV</a></div></section>
 </div>
 
-<h4 class="mb-3 text-warning">Admin Access Audit Trail</h4>
-<div class="card p-3">
-    <table class="table table-dark table-hover mb-0">
-        <thead>
-            <tr>
-                <th>Timestamp</th>
-                <th>Admin Username</th>
-                <th>Action Taken</th>
-                <th>Connecting IP</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for log in access_logs %}
-            <tr>
-                <td>{{ log.timestamp }}</td>
-                <td class="text-info">{{ log.username }}</td>
-                <td>
-                    {% if log.action == 'LOGIN' %}
-                        <span class="badge bg-success">LOGIN</span>
-                    {% else %}
-                        <span class="badge bg-secondary">LOGOUT</span>
-                    {% endif %}
-                </td>
-                <td class="text-muted">{{ log.ip_address }}</td>
-            </tr>
-            {% else %}
-            <tr><td colspan="4" class="text-center text-muted">No access logs found yet. Log out and back in to generate data.</td></tr>
-            {% endfor %}
-        </tbody>
-    </table>
-</div>
+<section class="panel audit-panel">
+    <div class="panel-heading"><div><h2>Admin access audit trail</h2><span class="panel-kicker">SIGN-INS · SIGN-OUTS · PROFILE AND SECURITY CHANGES</span></div><span class="badge bg-dark border border-secondary">{{ audit_count }} / 500</span></div>
+    <form method="get" action="{{ url_for('reports') }}" class="audit-filters">
+        <input class="form-control" type="search" name="q" value="{{ audit_search }}" placeholder="Search user, IP, or action" aria-label="Search audit records">
+        <select class="form-select" name="action" aria-label="Filter by action"><option value="">All actions</option>{% for item in ['LOGIN','LOGOUT','PROFILE_UPDATE','PASSWORD_CHANGE','BLACKLIST_FROM_ALERT'] %}<option value="{{ item }}" {% if audit_action == item %}selected{% endif %}>{{ item|replace('_',' ')|title }}</option>{% endfor %}</select>
+        <select class="form-select" name="window" aria-label="Filter by time period"><option value="24h" {% if audit_window == '24h' %}selected{% endif %}>Last 24 hours</option><option value="7d" {% if audit_window == '7d' %}selected{% endif %}>Last 7 days</option><option value="30d" {% if audit_window == '30d' %}selected{% endif %}>Last 30 days</option><option value="all" {% if audit_window == 'all' %}selected{% endif %}>All time</option></select>
+        <button class="btn btn-outline-info" type="submit">Apply filters</button><a class="btn btn-quiet" href="{{ url_for('reports') }}">Reset</a>
+    </form>
+    <p class="scope-note">Showing up to 500 matching records. The audit trail is stored locally in the NetGuard database.</p>
+    <div class="table-responsive"><table class="table table-hover mb-0"><thead><tr><th>Timestamp</th><th>Analyst</th><th>Action</th><th>Connecting IP</th></tr></thead><tbody>
+        {% for log in access_logs %}<tr><td class="subtle">{{ log.timestamp }}</td><td>{{ log.username }}</td><td><span class="audit-action audit-{{ log.action|lower|replace('_','-') }}">{{ log.action|replace('_',' ') }}</span></td><td class="audit-ip">{{ log.ip_address or 'Unavailable' }}</td></tr>{% else %}<tr><td colspan="4" class="empty-state">No audit records match these filters.</td></tr>{% endfor %}
+    </tbody></table></div>
+</section>
 {% endblock %}

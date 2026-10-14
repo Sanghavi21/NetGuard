@@ -1,36 +1,45 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NetGuard | Intrusion Detection System</title>
-    <!-- Bootstrap CSS for layout and styling -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}NetGuard SOC{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=6">
+    <style>{{ netguard_styles|safe }}</style>
 </head>
 <body>
-    <div class="container-fluid">
-        <div class="row">
-            <!-- Sidebar Navigation -->
-            <div class="col-md-2 d-none d-md-block sidebar">
-                <h4 class="text-center brand-title mb-4 mt-2">NETGUARD</h4>
-                
-                <a href="{{ url_for('dashboard') }}" class="{% if request.endpoint == 'dashboard' %}active{% endif %}">Dashboard</a>
-                <a href="{{ url_for('monitor') }}" class="{% if request.endpoint == 'monitor' %}active{% endif %}">Network Monitor</a>
-                <a href="{{ url_for('alerts') }}" class="{% if request.endpoint == 'alerts' %}active{% endif %}">Alerts</a>
-                <a href="{{ url_for('logs') }}" class="{% if request.endpoint == 'logs' %}active{% endif %}">Security Logs</a>
-                <a href="{{ url_for('ips') }}" class="{% if request.endpoint == 'ips' %}active{% endif %}">IP Management</a>
-                <a href="{{ url_for('simulation') }}" class="{% if request.endpoint == 'simulation' %}active{% endif %}">Attack Simulation</a>
-                <a href="{{ url_for('reports') }}" class="{% if request.endpoint == 'reports' %}active{% endif %}">Reports</a>
-                
-                <a href="{{ url_for('logout') }}" class="text-danger mt-5">Logout</a>
-            </div>
-
-            <!-- Main Content Area -->
-            <div class="col-md-10 p-4">
-                {% block content %}{% endblock %}
-            </div>
-        </div>
-    </div>
+<div class="app-shell">
+    <aside class="sidebar">
+        <a class="brand" href="{{ url_for('dashboard') }}"><span class="brand-mark">N</span><span>NETGUARD<small>SECURITY OPERATIONS</small></span></a>
+        <div class="nav-label">WORKSPACE</div>
+        <nav class="side-nav">
+            <a href="{{ url_for('dashboard') }}" class="{% if request.endpoint == 'dashboard' %}active{% endif %}"><span>◫</span> Overview</a>
+            <a href="{{ url_for('monitor') }}" class="{% if request.endpoint == 'monitor' %}active{% endif %}"><span>⌁</span> Network monitor</a>
+            <a href="{{ url_for('live_connections') }}" class="{% if request.endpoint == 'live_connections' %}active{% endif %}"><span>⇄</span> Live connections</a>
+            <a href="{{ url_for('alerts') }}" class="{% if request.endpoint in ['alerts', 'triage_alert'] %}active{% endif %}"><span>⚑</span> Alert triage</a>
+            <a href="{{ url_for('logs') }}" class="{% if request.endpoint == 'logs' %}active{% endif %}"><span>▤</span> Security logs</a>
+            <a href="{{ url_for('ips') }}" class="{% if request.endpoint in ['ips', 'delete_ip'] %}active{% endif %}"><span>⊘</span> IP management</a>
+            <a href="{{ url_for('simulation') }}" class="{% if request.endpoint == 'simulation' %}active{% endif %}"><span>⌘</span> Attack lab</a>
+            <a href="{{ url_for('reports') }}" class="{% if request.endpoint in ['reports', 'pdf_report'] %}active{% endif %}"><span>▧</span> Reports</a>
+            <a href="{{ url_for('profile') }}" class="{% if request.endpoint == 'profile' %}active{% endif %}"><span>◎</span> My profile</a>
+        </nav>
+        <div class="sidebar-bottom"><a class="user-chip" href="{{ url_for('profile') }}"><span class="avatar">{{ (session.get('display_name', session.get('username', 'A'))[0] or 'A')|upper }}</span><span>{{ session.get('display_name', session.get('username', 'Analyst')) }}<small>{{ 'Local administrator' if session.get('username', '').lower() == 'admin' else 'Security analyst' }} · Profile</small></span></a><form method="post" action="{{ url_for('logout') }}"><button class="logout-link" type="submit">Sign out ↗</button></form></div>
+    </aside>
+    <main class="main-panel">
+        <header class="topbar"><div><span class="eyebrow">NETGUARD / LOCAL OPERATIONS</span></div><div class="topbar-right"><span class="topbar-date" id="local-clock"></span><a class="top-profile" href="{{ url_for('profile') }}"><span class="top-avatar">{{ (session.get('display_name', session.get('username', 'A'))[0] or 'A')|upper }}</span><span>Profile</span></a><form method="post" action="{{ url_for('logout') }}" class="top-logout-form"><button class="top-logout" type="submit" aria-label="Sign out of NetGuard">Sign out <span aria-hidden="true">↗</span></button></form></div></header>
+        <section class="page-content">
+            {% with messages = get_flashed_messages(with_categories=true) %}{% if messages %}{% for category, message in messages %}<div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">{{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div>{% endfor %}{% endif %}{% endwith %}
+            {% block content %}{% endblock %}
+            <footer class="footer-note">NETGUARD <span>·</span> Network visibility for your lab</footer>
+        </section>
+    </main>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+(() => { const clock = document.getElementById('local-clock'); const update = () => { if (clock) clock.textContent = new Intl.DateTimeFormat([], { dateStyle: 'medium', timeStyle: 'short' }).format(new Date()); }; update(); setInterval(update, 30000); document.querySelectorAll('[data-bs-dismiss="alert"]').forEach(button => button.addEventListener('click', () => button.closest('.alert').remove()));
+})();
+</script>
+{% block scripts %}{% endblock %}
 </body>
 </html>

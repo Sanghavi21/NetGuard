@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+{% block title %}Live connections · NetGuard{% endblock %}
+{% block content %}
+<div class="page-heading"><div><span class="eyebrow">HOST VISIBILITY / SOCKET INVENTORY</span><h1>Live connections</h1><p>Current TCP and UDP endpoints reported by this computer, including owning process where Windows permits it.</p></div><div class="connection-actions"><button id="refresh-connections" class="btn btn-outline-info" type="button">↻ Refresh</button><a class="btn btn-outline-info" href="{{ url_for('export_live_connections') }}">Export CSV ↓</a></div></div>
+
+<section class="panel connection-status"><div><span id="connection-live-dot" class="live-pulse"></span><strong id="connection-status">Reading Windows socket table…</strong><small id="connection-sampled">Updates every 5 seconds</small></div><label class="connection-search-label" for="connection-search">FILTER CONNECTIONS<input id="connection-search" class="form-control" type="search" placeholder="Process, address, port, or protocol"></label></section>
+
+<div class="connection-stat-grid">
+  <section class="panel connection-stat"><span class="panel-kicker">SOCKETS</span><strong id="socket-total">—</strong><small>Current IPv4 / IPv6 TCP and UDP</small></section>
+  <section class="panel connection-stat"><span class="panel-kicker">ESTABLISHED</span><strong id="socket-established">—</strong><small>Active TCP sessions</small></section>
+  <section class="panel connection-stat"><span class="panel-kicker">LISTENERS</span><strong id="socket-listening">—</strong><small>Local services waiting for connections</small></section>
+  <section class="panel connection-stat"><span class="panel-kicker">NEEDS REVIEW</span><strong id="socket-review">—</strong><small>Wildcard listeners / sensitive services</small></section>
+</div>
+
+<section class="panel connection-table-panel">
+  <div class="panel-heading"><div><h2>Host socket inventory</h2><span class="panel-kicker">LIVE OPERATING-SYSTEM DATA · REFRESHES EVERY 5 SECONDS</span></div><span id="connection-result-count" class="usage-count">—</span></div>
+  <div class="connection-explainer"><strong>Review flags are indicators, not proof of compromise.</strong> “Bound to all interfaces” means the process listens beyond loopback. It does not confirm reachability through Windows Firewall, your router, or the internet.</div>
+  <div class="table-responsive"><table class="table table-hover connection-table"><thead><tr><th>Process</th><th>PID</th><th>Protocol</th><th>State</th><th>Local endpoint</th><th>Remote endpoint</th><th>Review</th></tr></thead><tbody id="connection-rows"><tr><td colspan="7" class="empty-state">Loading live connections…</td></tr></tbody></table></div>
+</section>
+
+<script>
+(() => {
+  const api = {{ url_for('api_live_connections')|tojson }};
+  const search = document.getElementById('connection-search');
+  const tbody = document.getElementById('connection-rows');
+  let allRows = [], requesting = false;
+  const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  function drawRows() {
+    const term = search.value.trim().toLowerCase();
+    const rows = allRows.filter(row => [row.process,row.pid,row.protocol,row.family,row.state,row.local,row.remote,...row.flags.map(f=>f.label)].join(' ').toLowerCase().includes(term));
+    document.getElementById('connection-result-count').textContent = `${rows.length} SHOWN · ${allRows.length} TOTAL`;
+    if (!rows.length) { tbody.innerHTML = `<tr><td colspan="7" class="empty-state">${allRows.length ? 'No connections match this filter.' : 'No current internet sockets were reported.'}</td></tr>`; return; }
+    tbody.innerHTML = rows.map(row => `<tr><td><strong class="connection-process">${esc(row.process)}</strong><small class="connection-family">${esc(row.family)}</small></td><td>${row.pid ?? '—'}</td><td><span class="connection-protocol">${esc(row.protocol)}</span></td><td><span class="connection-state ${row.state==='LISTEN'?'state-listen':row.state==='ESTABLISHED'?'state-established':''}">${esc(row.state)}</span></td><td class="connection-endpoint">${esc(row.local)}</td><td class="connection-endpoint">${esc(row.remote)}</td><td>${row.flags.length ? row.flags.map(flag=>`<span class="connection-flag ${flag.kind==='review'?'flag-review':'flag-neutral'}">${esc(flag.label)}</span>`).join(' ') : '<span class="subtle">—</span>'}</td></tr>`).join('');
+  }
+  async function refresh() {
+    if (requesting) return; requesting = true;
+    try {
+      const response = await fetch(api,{cache:'no-store',headers:{'Accept':'application/json'}});
+      const data = await response.json().catch(()=>({}));
+      if (!response.ok) throw new Error(data.error || `Connection inventory returned HTTP ${response.status}`);
+      allRows = data.connections || [];
+      document.getElementById('socket-total').textContent = data.summary.total;
+      document.getElementById('socket-established').textContent = data.summary.established;
+      document.getElementById('socket-listening').textContent = data.summary.listening;
+      document.getElementById('socket-review').textContent = data.summary.review;
+      document.getElementById('connection-status').textContent = 'LIVE · Host socket table available';
+      document.getElementById('connection-sampled').textContent = `Last sampled · ${new Date(data.sampled_at).toLocaleTimeString()}`;
+      drawRows();
+    } catch (error) {
+      document.getElementById('connection-status').textContent = error.message;
+      document.getElementById('connection-status').classList.add('text-danger');
+      tbody.innerHTML = `<tr><td colspan="7" class="empty-state">Live socket data is unavailable. Check the NetGuard server output and refresh.</td></tr>`;
+    } finally { requesting = false; }
+  }
+  search.addEventListener('input',drawRows);
+  document.getElementById('refresh-connections').addEventListener('click',refresh);
+  refresh(); window.setInterval(refresh,5000);
+})();
+</script>
+{% endblock %}
